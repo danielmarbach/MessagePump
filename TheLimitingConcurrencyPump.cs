@@ -19,11 +19,11 @@ public class TheLimitingConcurrencyPump : NotInteresting
         {
             while (!token.IsCancellationRequested)
             {
-                var (payload, headers) = ReadFromQueue();
-                var message = Deserialize(payload, headers);
-
                 await semaphore.WaitAsync(token);
 
+                var (payload, headers) = ReadFromQueue();
+                var message = Deserialize(payload, headers);
+                
                 FireAndForget(ReleaseAfterHandle(message, semaphore));
             }
         });
