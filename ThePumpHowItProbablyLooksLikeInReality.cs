@@ -20,11 +20,7 @@ public class ThePumpHowItProbablyLooksLikeInReality : NotInteresting
             {
                 await semaphore.WaitAsync(token);
 
-                var transaction = CreateTransaction();
-                var (payload, headers) = ReadFromQueue(transaction);
-                var message = Deserialize(payload, headers);
-
-                FireAndForget(ReleaseAfterHandle(message, semaphore, transaction));
+                FireAndForget(FetchAndHandleAndReleaseWithMiddleware(semaphore));
             }
         });
 
@@ -38,27 +34,32 @@ public class ThePumpHowItProbablyLooksLikeInReality : NotInteresting
         tokenSource.Dispose();
     }
 
-    static async Task ReleaseAfterHandle(Message message, SemaphoreSlim semaphore, Transaction transaction)
+    static async Task FetchAndHandleAndReleaseWithMiddleware(SemaphoreSlim semaphore)
     {
-        using (transaction)
-        using (var childServiceProvider = CreateChildServiceProvider())
+        using (var transaction = CreateTransaction()) 
         {
-            try
-            {
-                var middlewareFuncs = new Func<HandlerContext, Func<HandlerContext, Task>, Task>[] { Middleware1, Middleware2 };
-                var middleware = FlextensibleMiddleware(childServiceProvider, middlewareFuncs);
-                
-                await middleware(message).ConfigureAwait(false);
+            var (payload, headers) = await ReadFromQueue(transaction);
+            var message = Deserialize(payload, headers);
 
-                transaction.Complete();
-            }
-            catch (Exception)
+            using (var childServiceProvider = CreateChildServiceProvider())
             {
-                // Just log?
-            }
-            finally
-            {
-                semaphore.Release();
+                try
+                {
+                    var middlewareFuncs = new Func<HandlerContext, Func<HandlerContext, Task>, Task>[] { Middleware1, Middleware2 };
+                    var middleware = FlextensibleMiddleware(childServiceProvider, middlewareFuncs);
+                    
+                    await middleware(message).ConfigureAwait(false);
+
+                    transaction.Complete();
+                }
+                catch (Exception)
+                {
+                    // Just log?
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
             }
         }
     }

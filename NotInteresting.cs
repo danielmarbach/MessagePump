@@ -14,7 +14,7 @@ public class NotInteresting
         return new Transaction();
     }
 
-    protected static (Memory<byte> payload, Memory<byte> headers) ReadFromQueue(Transaction transaction = null) => (new Memory<byte>(), new Memory<byte>());
+    protected static Task<(Memory<byte> payload, Memory<byte> headers)> ReadFromQueue(Transaction transaction = null) => Task.FromResult((new Memory<byte>(), new Memory<byte>()));
 
     protected static Message Deserialize(Memory<byte> payload, Memory<byte> headers) => new Message();
 

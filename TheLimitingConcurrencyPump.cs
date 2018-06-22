@@ -21,10 +21,8 @@ public class TheLimitingConcurrencyPump : NotInteresting
             {
                 await semaphore.WaitAsync(token);
 
-                var (payload, headers) = ReadFromQueue();
-                var message = Deserialize(payload, headers);
-                
-                FireAndForget(ReleaseAfterHandle(message, semaphore));
+               
+                FireAndForget(FetchAndHandleAndRelease(semaphore));
             }
         });
 
@@ -38,10 +36,13 @@ public class TheLimitingConcurrencyPump : NotInteresting
         tokenSource.Dispose();
     }
 
-    static async Task ReleaseAfterHandle(Message message, SemaphoreSlim semaphore)
+    static async Task FetchAndHandleAndRelease(SemaphoreSlim semaphore)
     {
         try
         {
+            var (payload, headers) = await ReadFromQueue();
+            var message = Deserialize(payload, headers);
+
             await HandleMessage(message).ConfigureAwait(false);
         }
         finally

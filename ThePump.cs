@@ -15,7 +15,7 @@ public class ThePump : NotInteresting
         {
             while (!token.IsCancellationRequested)
             {
-                var (payload, headers) = ReadFromQueue();
+                var (payload, headers) = await ReadFromQueue();
                 var message = Deserialize(payload, headers);
 
                 await HandleMessage(message).ConfigureAwait(false);

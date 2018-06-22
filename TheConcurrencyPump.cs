@@ -8,17 +8,14 @@ public class TheConcurrencyPump : NotInteresting
     public static async Task Execute()
     {
         var tokenSource = new CancellationTokenSource();
-        tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
+        tokenSource.CancelAfter(TimeSpan.FromMilliseconds(200));
         var token = tokenSource.Token;
 
         var pumpTask = Task.Run(() =>
         {
             while (!token.IsCancellationRequested)
             {
-                var (payload, headers) = ReadFromQueue();
-                var message = Deserialize(payload, headers);
-
-                FireAndForget(HandleMessage(message));
+                FireAndForget(FetchAndHandleMessage());
             }
         });
 
@@ -27,6 +24,14 @@ public class TheConcurrencyPump : NotInteresting
         WriteLine("Are we done yet?");
 
         tokenSource.Dispose();
+    }
+
+    static async Task FetchAndHandleMessage()
+    {
+        var (payload, headers) = await ReadFromQueue();
+        var message = Deserialize(payload, headers);
+
+        await HandleMessage(message);
     }
 
     static async Task HandleMessage(Message message)
