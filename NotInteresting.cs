@@ -7,6 +7,11 @@ using System.Threading.Tasks;
 using static System.Console;
 public class NotInteresting
 {
+    protected NotInteresting() 
+    {
+        Message.ResetId();
+    }
+
     protected static void Pumping(Message message) => WriteLine($"Pumping {message.Id}...");
 
     protected static Transaction CreateTransaction()
@@ -60,6 +65,11 @@ public class NotInteresting
         public long Id { get; }
 
         public Message() => Id = Interlocked.Increment(ref idForDemo);
+
+        public static void ResetId()
+        {
+            idForDemo = 0;
+        }
     }
 
     protected class ChildServiceProvider : IDisposable

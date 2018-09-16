@@ -9,19 +9,19 @@ namespace MessagePump
         static async Task Main(string[] args)
         {
             Console.WriteLine($"{nameof(ThePump)} executing");
-            await ThePump.Execute();
+            await new ThePump().Execute();
             WriteLine("Press to continue...");
             ReadLine();
             Clear();
 
             Console.WriteLine($"{nameof(TheConcurrencyPump)} executing");
-            await TheConcurrencyPump.Execute();
+            await new TheConcurrencyPump().Execute();
             WriteLine("Press to continue...");
             ReadLine();
             Clear();
 
             Console.WriteLine($"{nameof(TheLimitingConcurrencyPump)} executing");
-            await TheLimitingConcurrencyPump.Execute();
+            await new TheLimitingConcurrencyPump().Execute();
         }
     }
 }

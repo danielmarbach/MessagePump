@@ -5,7 +5,7 @@ using static System.Console;
 
 public class TheConcurrencyPump : NotInteresting
 {
-    public static async Task Execute()
+    public async Task Execute()
     {
         var tokenSource = new CancellationTokenSource();
         tokenSource.CancelAfter(TimeSpan.FromMilliseconds(200));

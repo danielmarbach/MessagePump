@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 public class ThePump : NotInteresting
 {
-    public static async Task Execute()
+    public async Task Execute()
     {
         var tokenSource = new CancellationTokenSource();
         tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
