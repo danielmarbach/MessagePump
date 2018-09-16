@@ -21,7 +21,6 @@ public class TheLimitingConcurrencyPump : NotInteresting
             {
                 await semaphore.WaitAsync(token);
 
-               
                 FireAndForget(FetchAndHandleAndRelease(semaphore));
             }
         });
