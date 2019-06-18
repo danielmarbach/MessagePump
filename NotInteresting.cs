@@ -19,7 +19,7 @@ public class NotInteresting
         return new Transaction();
     }
 
-    protected static Task<(Memory<byte> payload, Memory<byte> headers)> ReadFromQueue(Transaction transaction = null) => Task.FromResult((new Memory<byte>(), new Memory<byte>()));
+    protected static Task<(Memory<byte> payload, Memory<byte> headers)> ReadFromQueue(CancellationToken token = default, Transaction transaction = null) => Task.FromResult((new Memory<byte>(), new Memory<byte>()));
 
     protected static Message Deserialize(Memory<byte> payload, Memory<byte> headers) => new Message();
 
@@ -28,21 +28,21 @@ public class NotInteresting
         return new ChildServiceProvider();
     }
 
-    protected static Func<Message, Task> FlextensibleMiddleware(ChildServiceProvider provider, params Func<HandlerContext, Func<HandlerContext, Task>, Task>[] middleware)
+    protected static Func<Message, Task> FlextensibleMiddleware(ChildServiceProvider provider, Func<HandlerContext, Func<HandlerContext, CancellationToken, Task>, CancellationToken, Task>[] middleware, CancellationToken token = default)
     {
         return (msg) =>
         {
             var context = new HandlerContext() { Message = msg };
-            return middleware[1](context, (msg1) => middleware[0](msg1, msg2 => Done(msg2)));
+            return middleware[1](context, (ctx1, tkn1) => middleware[0](ctx1, (ctx2, tkn2) => Done(ctx2, tkn2), token), token);
         };
     }
 
-    static Task Done(HandlerContext msg)
+    static Task Done(HandlerContext context, CancellationToken token = default)
     {
         return Task.FromResult(0);
     }
 
-    protected static void FireAndForget(Task task)
+    protected void FireAndForget(Task task)
     {
     }
 
@@ -87,7 +87,7 @@ public class NotInteresting
 
     protected interface IHandleMessage<TMessage> where TMessage : class
     {
-        Task Handle(TMessage message, HandlerContext context);
+        Task Handle(TMessage message, HandlerContext context, CancellationToken token = default);
     }
 
     protected class HandlerContext

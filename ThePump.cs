@@ -3,31 +3,38 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-public class ThePump : NotInteresting
+class ThePump : NotInteresting
 {
-    public async Task Execute()
+    Task pumpTask;
+    CancellationTokenSource tokenSource;
+
+    public void Start()
     {
-        var tokenSource = new CancellationTokenSource();
-        tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
+        tokenSource = new CancellationTokenSource();
         var token = tokenSource.Token;
 
-        var pumpTask = ((Func<Task>)(async () =>
+        pumpTask = ((Func<Task>)(async () =>
         {
             while (!token.IsCancellationRequested)
             {
-                var (payload, headers) = await ReadFromQueue().ConfigureAwait(false);
+                var (payload, headers) = await ReadFromQueue(token).ConfigureAwait(false);
                 var message = Deserialize(payload, headers);
 
-                await HandleMessage(message).ConfigureAwait(false);
+                await HandleMessage(message, token).ConfigureAwait(false);
             }
         }))();
+    }
+
+    public async Task Stop()
+    {
+        tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
 
         await pumpTask.ConfigureAwait(false);
 
         tokenSource.Dispose();
     }
 
-    static async Task HandleMessage(Message message)
+    async Task HandleMessage(Message message, CancellationToken token = default)
     {
         await Task.Delay(1000).ConfigureAwait(false);
         Pumping(message);

@@ -3,21 +3,29 @@ using System.Threading;
 using System.Threading.Tasks;
 using static System.Console;
 
-public class TheConcurrencyPump : NotInteresting
+class TheConcurrencyPump : NotInteresting
 {
-    public async Task Execute()
+    Task pumpTask;
+    CancellationTokenSource tokenSource;
+
+    public void Start()
     {
-        var tokenSource = new CancellationTokenSource();
-        tokenSource.CancelAfter(TimeSpan.FromMilliseconds(200));
+        tokenSource = new CancellationTokenSource();
+        
         var token = tokenSource.Token;
 
-        var pumpTask = Task.Run(() =>
+        pumpTask = Task.Run(() =>
         {
             while (!token.IsCancellationRequested)
             {
-                FireAndForget(FetchAndHandleMessage());
+                FireAndForget(FetchAndHandleMessage(token));
             }
         });
+    }
+
+    public async Task Stop() 
+    {
+        tokenSource.CancelAfter(TimeSpan.FromMilliseconds(100));
 
         await pumpTask.ConfigureAwait(false);
 
@@ -26,7 +34,7 @@ public class TheConcurrencyPump : NotInteresting
         tokenSource.Dispose();
     }
 
-    static async Task FetchAndHandleMessage()
+    async Task FetchAndHandleMessage(CancellationToken token = default)
     {
         var (payload, headers) = await ReadFromQueue().ConfigureAwait(false);
         var message = Deserialize(payload, headers);
@@ -34,7 +42,7 @@ public class TheConcurrencyPump : NotInteresting
         await HandleMessage(message).ConfigureAwait(false);
     }
 
-    static async Task HandleMessage(Message message)
+    async Task HandleMessage(Message message, CancellationToken token = default)
     {
         await Task.Delay(1000).ConfigureAwait(false);
         Pumping(message);

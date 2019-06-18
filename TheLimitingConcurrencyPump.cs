@@ -3,19 +3,21 @@ using System.Threading;
 using System.Threading.Tasks;
 using static System.Console;
 
-public class TheLimitingConcurrencyPump : NotInteresting
+class TheLimitingConcurrencyPump : NotInteresting
 {
-    private const int MaxConcurrency = 3;
+    const int MaxConcurrency = 3;
+    CancellationTokenSource tokenSource;
+    private SemaphoreSlim semaphore;
+    Task pumpTask;
 
-    public async Task Execute()
+    public void Start()
     {
-        var tokenSource = new CancellationTokenSource();
-        tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
+        tokenSource = new CancellationTokenSource();
+        semaphore = new SemaphoreSlim(MaxConcurrency);
+
         var token = tokenSource.Token;
 
-        var semaphore = new SemaphoreSlim(MaxConcurrency);
-
-        var pumpTask = ((Func<Task>)(async () =>
+        pumpTask = ((Func<Task>)(async () =>
         {
             while (!token.IsCancellationRequested)
             {
@@ -24,6 +26,10 @@ public class TheLimitingConcurrencyPump : NotInteresting
                 FireAndForget(FetchAndHandleAndRelease(semaphore));
             }
         }))();
+    }
+
+    public async Task Stop() {
+        tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
 
         await Graceful(pumpTask).ConfigureAwait(false);
 
@@ -35,7 +41,7 @@ public class TheLimitingConcurrencyPump : NotInteresting
         tokenSource.Dispose();
     }
 
-    static async Task FetchAndHandleAndRelease(SemaphoreSlim semaphore)
+    async Task FetchAndHandleAndRelease(SemaphoreSlim semaphore, CancellationToken token = default)
     {
         try
         {
@@ -50,7 +56,7 @@ public class TheLimitingConcurrencyPump : NotInteresting
         }
     }
 
-    static async Task HandleMessage(Message message)
+    async Task HandleMessage(Message message, CancellationToken token = default)
     {
         await Task.Delay(1000).ConfigureAwait(false);
         Pumping(message);

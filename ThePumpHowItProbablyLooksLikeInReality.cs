@@ -5,25 +5,32 @@ using System.Threading.Tasks;
 public class ThePumpHowItProbablyLooksLikeInReality : NotInteresting
 {
     private const int MaxConcurrency = 3;
+    private CancellationTokenSource tokenSource;
+    private SemaphoreSlim semaphore;
+    private Task pumpTask;
 
-    public static async Task Execute()
+    public void Start()
     {
-        var tokenSource = new CancellationTokenSource();
-        tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
+        tokenSource = new CancellationTokenSource();
+
         var token = tokenSource.Token;
 
-        var semaphore = new SemaphoreSlim(MaxConcurrency);
+        semaphore = new SemaphoreSlim(MaxConcurrency);
 
-        var pumpTask = ((Func<Task>)(async () =>
+        pumpTask = ((Func<Task>)(async () =>
         {
             while (!token.IsCancellationRequested)
             {
                 await semaphore.WaitAsync(token);
 
-                FireAndForget(FetchAndHandleAndReleaseWithMiddleware(semaphore));
+                FireAndForget(FetchAndHandleAndReleaseWithMiddleware(semaphore, token));
             }
         }))();
+    }
 
+    public async Task Stop()
+    {
+        tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
         await Graceful(pumpTask).ConfigureAwait(false);
 
         while (semaphore.CurrentCount != MaxConcurrency)
@@ -34,20 +41,20 @@ public class ThePumpHowItProbablyLooksLikeInReality : NotInteresting
         tokenSource.Dispose();
     }
 
-    static async Task FetchAndHandleAndReleaseWithMiddleware(SemaphoreSlim semaphore)
+    async Task FetchAndHandleAndReleaseWithMiddleware(SemaphoreSlim semaphore, CancellationToken token = default)
     {
-        using (var transaction = CreateTransaction()) 
+        using (var transaction = CreateTransaction())
         {
-            var (payload, headers) = await ReadFromQueue(transaction).ConfigureAwait(false);
+            var (payload, headers) = await ReadFromQueue(token, transaction).ConfigureAwait(false);
             var message = Deserialize(payload, headers);
 
             using (var childServiceProvider = CreateChildServiceProvider())
             {
                 try
                 {
-                    var middlewareFuncs = new Func<HandlerContext, Func<HandlerContext, Task>, Task>[] { Middleware1, Middleware2 };
-                    var middleware = FlextensibleMiddleware(childServiceProvider, middlewareFuncs);
-                    
+                    var middlewareFuncs = new Func<HandlerContext, Func<HandlerContext, CancellationToken, Task>, CancellationToken, Task>[] { Middleware1, Middleware2 };
+                    var middleware = FlextensibleMiddleware(childServiceProvider, middlewareFuncs, token);
+
                     await middleware(message).ConfigureAwait(false);
 
                     transaction.Complete();
@@ -64,26 +71,28 @@ public class ThePumpHowItProbablyLooksLikeInReality : NotInteresting
         }
     }
 
-    static async Task Middleware1(HandlerContext context, Func<HandlerContext, Task> next) {
-        
-        await next(context);
+    async Task Middleware1(HandlerContext context, Func<HandlerContext, CancellationToken, Task> next, CancellationToken token = default)
+    {
+
+        await next(context, token);
     }
 
-    static async Task Middleware2(HandlerContext context, Func<HandlerContext, Task> next) {
-        
+    async Task Middleware2(HandlerContext context, Func<HandlerContext, CancellationToken, Task> next, CancellationToken token = default)
+    {
+
         var handlers = context.Provider.Resolve<IHandleMessage<Message>>();
 
         foreach (var handler in handlers)
         {
-            await handler.Handle(context.Message, context).ConfigureAwait(false);
+            await handler.Handle(context.Message, context, token).ConfigureAwait(false);
         }
-        
-        await next(context).ConfigureAwait(false);
+
+        await next(context, token).ConfigureAwait(false);
     }
 
     class MessageHandler : IHandleMessage<Message>
     {
-        public async Task Handle(Message message, HandlerContext context)
+        public async Task Handle(Message message, HandlerContext context, CancellationToken token = default)
         {
             await Task.Delay(1000).ConfigureAwait(false);
             Pumping(message);
