@@ -15,15 +15,15 @@ public class TheLimitingConcurrencyPump : NotInteresting
 
         var semaphore = new SemaphoreSlim(MaxConcurrency);
 
-        var pumpTask = Task.Run(async () =>
+        var pumpTask = ((Func<Task>)(async () =>
         {
             while (!token.IsCancellationRequested)
             {
-                await semaphore.WaitAsync(token);
+                await semaphore.WaitAsync(token).ConfigureAwait(false);
 
                 FireAndForget(FetchAndHandleAndRelease(semaphore));
             }
-        });
+        }))();
 
         await Graceful(pumpTask).ConfigureAwait(false);
 
@@ -39,7 +39,7 @@ public class TheLimitingConcurrencyPump : NotInteresting
     {
         try
         {
-            var (payload, headers) = await ReadFromQueue();
+            var (payload, headers) = await ReadFromQueue().ConfigureAwait(false);
             var message = Deserialize(payload, headers);
 
             await HandleMessage(message).ConfigureAwait(false);
@@ -52,7 +52,7 @@ public class TheLimitingConcurrencyPump : NotInteresting
 
     static async Task HandleMessage(Message message)
     {
-        await Task.Delay(1000);
+        await Task.Delay(1000).ConfigureAwait(false);
         Pumping(message);
     }
 }

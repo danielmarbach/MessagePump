@@ -28,15 +28,15 @@ public class TheConcurrencyPump : NotInteresting
 
     static async Task FetchAndHandleMessage()
     {
-        var (payload, headers) = await ReadFromQueue();
+        var (payload, headers) = await ReadFromQueue().ConfigureAwait(false);
         var message = Deserialize(payload, headers);
 
-        await HandleMessage(message);
+        await HandleMessage(message).ConfigureAwait(false);
     }
 
     static async Task HandleMessage(Message message)
     {
-        await Task.Delay(1000);
+        await Task.Delay(1000).ConfigureAwait(false);
         Pumping(message);
     }
 }

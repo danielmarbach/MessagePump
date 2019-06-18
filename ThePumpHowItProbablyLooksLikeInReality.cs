@@ -14,7 +14,7 @@ public class ThePumpHowItProbablyLooksLikeInReality : NotInteresting
 
         var semaphore = new SemaphoreSlim(MaxConcurrency);
 
-        var pumpTask = Task.Run(async () =>
+        var pumpTask = ((Func<Task>)(async () =>
         {
             while (!token.IsCancellationRequested)
             {
@@ -22,7 +22,7 @@ public class ThePumpHowItProbablyLooksLikeInReality : NotInteresting
 
                 FireAndForget(FetchAndHandleAndReleaseWithMiddleware(semaphore));
             }
-        });
+        }))();
 
         await Graceful(pumpTask).ConfigureAwait(false);
 
@@ -38,7 +38,7 @@ public class ThePumpHowItProbablyLooksLikeInReality : NotInteresting
     {
         using (var transaction = CreateTransaction()) 
         {
-            var (payload, headers) = await ReadFromQueue(transaction);
+            var (payload, headers) = await ReadFromQueue(transaction).ConfigureAwait(false);
             var message = Deserialize(payload, headers);
 
             using (var childServiceProvider = CreateChildServiceProvider())
@@ -75,19 +75,19 @@ public class ThePumpHowItProbablyLooksLikeInReality : NotInteresting
 
         foreach (var handler in handlers)
         {
-            await handler.Handle(context.Message, context);
+            await handler.Handle(context.Message, context).ConfigureAwait(false);
         }
         
-        await next(context);
+        await next(context).ConfigureAwait(false);
     }
 
     class MessageHandler : IHandleMessage<Message>
     {
         public async Task Handle(Message message, HandlerContext context)
         {
-            await Task.Delay(1000);
+            await Task.Delay(1000).ConfigureAwait(false);
             Pumping(message);
-            await context.Send(new Message());
+            await context.Send(new Message()).ConfigureAwait(false);
         }
     }
 }
