@@ -8,14 +8,12 @@ class TheConcurrencyPump : NotInteresting
     Task pumpTask;
     CancellationTokenSource tokenSource;
 
-    public void Start()
-    {
+    public void Start() {
         tokenSource = new CancellationTokenSource();
         
         var token = tokenSource.Token;
 
-        pumpTask = Task.Run(() =>
-        {
+        pumpTask = Task.Run(() => {
             while (!token.IsCancellationRequested)
             {
                 FireAndForget(FetchAndHandleMessage(token));
@@ -23,8 +21,19 @@ class TheConcurrencyPump : NotInteresting
         });
     }
 
-    public async Task Stop() 
-    {
+    async Task FetchAndHandleMessage(CancellationToken token = default) {
+        var (payload, headers) = await ReadFromQueue().ConfigureAwait(false);
+        var message = Deserialize(payload, headers);
+
+        await HandleMessage(message).ConfigureAwait(false);
+    }
+
+    async Task HandleMessage(Message message, CancellationToken token = default) {
+        await Task.Delay(1000).ConfigureAwait(false);
+        Pumping(message);
+    }
+
+    public async Task Stop() {
         tokenSource.CancelAfter(TimeSpan.FromMilliseconds(100));
 
         await pumpTask.ConfigureAwait(false);
@@ -32,19 +41,5 @@ class TheConcurrencyPump : NotInteresting
         WriteLine("Are we done yet?");
 
         tokenSource.Dispose();
-    }
-
-    async Task FetchAndHandleMessage(CancellationToken token = default)
-    {
-        var (payload, headers) = await ReadFromQueue().ConfigureAwait(false);
-        var message = Deserialize(payload, headers);
-
-        await HandleMessage(message).ConfigureAwait(false);
-    }
-
-    async Task HandleMessage(Message message, CancellationToken token = default)
-    {
-        await Task.Delay(1000).ConfigureAwait(false);
-        Pumping(message);
     }
 }

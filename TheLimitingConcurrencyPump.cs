@@ -17,10 +17,9 @@ class TheLimitingConcurrencyPump : NotInteresting
 
         var token = tokenSource.Token;
 
-        pumpTask = ((Func<Task>)(async () =>
-        {
-            while (!token.IsCancellationRequested)
-            {
+        pumpTask = ((Func<Task>)(async () => {
+            while (!token.IsCancellationRequested) {
+                
                 await semaphore.WaitAsync(token).ConfigureAwait(false);
 
                 FireAndForget(FetchAndHandleAndRelease(semaphore));
@@ -28,37 +27,32 @@ class TheLimitingConcurrencyPump : NotInteresting
         }))();
     }
 
-    public async Task Stop() {
-        tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-
-        await Graceful(pumpTask).ConfigureAwait(false);
-
-        while (semaphore.CurrentCount != MaxConcurrency)
-        {
-            await Task.Delay(50).ConfigureAwait(false);
-        }
-
-        tokenSource.Dispose();
-    }
-
-    async Task FetchAndHandleAndRelease(SemaphoreSlim semaphore, CancellationToken token = default)
-    {
-        try
-        {
+    async Task FetchAndHandleAndRelease(SemaphoreSlim semaphore, CancellationToken token = default) {
+        try {
             var (payload, headers) = await ReadFromQueue().ConfigureAwait(false);
             var message = Deserialize(payload, headers);
 
             await HandleMessage(message).ConfigureAwait(false);
         }
-        finally
-        {
+        finally {
             semaphore.Release();
         }
     }
 
-    async Task HandleMessage(Message message, CancellationToken token = default)
-    {
+    async Task HandleMessage(Message message, CancellationToken token = default) {
         await Task.Delay(1000).ConfigureAwait(false);
         Pumping(message);
+    }
+
+    public async Task Stop() {
+        tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
+
+        await Graceful(pumpTask).ConfigureAwait(false);
+
+        while (semaphore.CurrentCount != MaxConcurrency) {
+            await Task.Delay(50).ConfigureAwait(false);
+        }
+
+        tokenSource.Dispose();
     }
 }

@@ -8,13 +8,11 @@ class ThePump : NotInteresting
     Task pumpTask;
     CancellationTokenSource tokenSource;
 
-    public void Start()
-    {
+    public void Start() {
         tokenSource = new CancellationTokenSource();
         var token = tokenSource.Token;
 
-        pumpTask = ((Func<Task>)(async () =>
-        {
+        pumpTask = ((Func<Task>)(async () => {
             while (!token.IsCancellationRequested)
             {
                 var (payload, headers) = await ReadFromQueue(token).ConfigureAwait(false);
@@ -25,18 +23,16 @@ class ThePump : NotInteresting
         }))();
     }
 
-    public async Task Stop()
-    {
+    async Task HandleMessage(Message message, CancellationToken token = default) {
+        await Task.Delay(1000).ConfigureAwait(false);
+        Pumping(message);
+    }
+
+    public async Task Stop() {
         tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
 
         await pumpTask.ConfigureAwait(false);
 
         tokenSource.Dispose();
-    }
-
-    async Task HandleMessage(Message message, CancellationToken token = default)
-    {
-        await Task.Delay(1000).ConfigureAwait(false);
-        Pumping(message);
     }
 }
