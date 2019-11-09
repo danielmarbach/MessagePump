@@ -5,10 +5,12 @@ using static System.Console;
 
 class TheLimitingConcurrencyPump : NotInteresting
 {
+    #region Hide
     const int MaxConcurrency = 3;
     CancellationTokenSource tokenSource;
     private SemaphoreSlim semaphore;
     Task pumpTask;
+    #endregion
 
     public void Start()
     {
